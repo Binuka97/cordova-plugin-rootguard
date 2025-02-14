@@ -1,0 +1,18 @@
+{
+    "name": "cordova-plugin-rootguard",
+    "version": "1.0.0",
+    "description": "Cordova plugin for detecting root access and Frida-based root bypass attempts.",
+    "cordova": {
+        "id": "cordova-plugin-rootguard",
+        "platforms": ["android"]
+    },
+    "keywords": [
+        "cordova",
+        "plugin",
+        "root-detection",
+        "frida-detection",
+        "security"
+    ],
+    "author": "Binuka Kamesh",
+    "license": "MIT"
+}

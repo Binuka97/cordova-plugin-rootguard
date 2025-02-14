@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin id="cordova-plugin-rootguard" version="1.0.0" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
+    <name>RootGuard</name>
+    <description>Root and Frida detection plugin for Cordova</description>
+    <license>MIT</license>
+    <keywords>cordova, root detection, frida detection, security</keywords>
+    <engines>
+        <engine name="cordova" version=">=10.0.0"/>
+    </engines>
+
+    <platform name="android">
+        <config-file target="AndroidManifest.xml" parent="/*">
+            <uses-permission android:name="android.permission.INTERNET"/>
+        </config-file>
+        
+        <source-file src="src/android/com/example/rootguard/RootGuard.java" target-dir="src/com/example/rootguard"/>
+    </platform>
+
+    <js-module src="www/rootguard.js" name="RootGuard">
+        <clobbers target="RootGuard"/>
+    </js-module>
+</plugin>
