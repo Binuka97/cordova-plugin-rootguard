@@ -13,7 +13,7 @@
             <uses-permission android:name="android.permission.INTERNET"/>
         </config-file>
         
-        <source-file src="src/android/com/example/rootguard/RootGuard.java" target-dir="src/com/example/rootguard"/>
+        <source-file src="src/android/RootGuard.java" target-dir="src/com/android/rootguard"/>
     </platform>
 
     <js-module src="www/rootguard.js" name="RootGuard">
