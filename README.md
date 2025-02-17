@@ -64,6 +64,22 @@ RootGuard.checkSecurity(function(result) {
 
 ---
 
+## 🛠️ Testing
+### **Testing Root Detection**
+1. Install **Magisk** or **SuperSU** on your Android device.
+2. Run your Cordova app. It should detect root and exit.
+
+### **Testing Frida Detection**
+1. Start Frida-server on the device:
+   ```sh
+   adb push frida-server /data/local/tmp/
+   adb shell chmod 755 /data/local/tmp/frida-server
+   adb shell /data/local/tmp/frida-server &
+   ```
+2. Run your Cordova app. It should detect Frida and exit.
+
+---
+
 ## Supported Platforms
 ✅ **Android** (Minimum SDK: API 21+)
 ❌ iOS (Not supported yet)
