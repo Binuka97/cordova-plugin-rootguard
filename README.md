@@ -1,4 +1,4 @@
-# Cordova Plugin - RootGuard
+# Cordova Plugin - RootGuard : cordova-plugin-rootguard
 
 **RootGuard** is a Cordova plugin designed to detect if an Android device is rooted and if Frida-based debugging or root bypass techniques are being used.
 
@@ -12,7 +12,7 @@
 To install the plugin in your Cordova project, run the following command:
 
 ```sh
-cordova plugin add https://github.com/your-repo/cordova-plugin-rootguard.git
+cordova plugin add https://github.com/binuka97/cordova-plugin-rootguard.git
 ```
 
 ## 📖 Usage
@@ -23,6 +23,7 @@ The plugin provides a single function `checkSecurity` that checks for both root 
 ```js
 RootGuard.checkSecurity(function(result) {
     if (result === 1) {
+        console.log("Security status: " + (result ? "Compromised" : "Safe"));
         console.log("Security Risk Detected: Root or Frida is present.");
     } else {
         console.log("Device is secure.");
