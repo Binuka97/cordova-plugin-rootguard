@@ -5,18 +5,24 @@
     <license>MIT</license>
     <keywords>cordova, root detection, frida detection, security</keywords>
     <engines>
-        <engine name="cordova" version=">=10.0.0"/>
+        <engine name="cordova" version=">=9.0.0"/>
     </engines>
 
     <platform name="android">
+        <config-file target="res/xml/config.xml" parent="/*">
+        <feature name="RootGuard">
+            <param name="android-package" value="com.rootguard.detection.RootGuard"/>
+        </feature>
+        </config-file>
+
         <config-file target="AndroidManifest.xml" parent="/*">
             <uses-permission android:name="android.permission.INTERNET"/>
         </config-file>
         
-        <source-file src="src/android/RootGuard.java" target-dir="src/com/android/rootguard"/>
+        <source-file src="src/android/RootGuard.java" target-dir="src/com/android/rootguard/"/>
     </platform>
 
-    <js-module src="www/rootguard.js" name="RootGuard">
+    <js-module src="www/RootGuard.js" name="RootGuard">
         <clobbers target="RootGuard"/>
     </js-module>
 </plugin>

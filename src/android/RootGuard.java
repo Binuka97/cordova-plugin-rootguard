@@ -9,7 +9,7 @@ import java.net.*;
 
 public class RootGuard extends CordovaPlugin {
     private static final String TAG = "RootGuard";
-    private static final boolean ENABLE_LOGS = false; // Set to false for production
+    private static final boolean ENABLE_LOGS = true; // Set to false for production
 
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
