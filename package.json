@@ -11,8 +11,33 @@
         "plugin",
         "root-detection",
         "frida-detection",
-        "security"
+        "security",
+        "cydia",
+        "detection",
+        "detector",
+        "root",
+        "rooted",
+        "rootBeer",
+        "android",
+        "rootguard",
+        "rootguard-plugin",
+        "rootguard-cordova-plugin",
+        "rootguard-cordova",
+        "frida",
+        "frida-detection",
+        "frida-detection-plugin",
+        "frida-detection-cordova-plugin",
+        "frida-bypass",
+        "frida-bypass-detection"
     ],
-    "author": "Binuka Kamesh",
-    "license": "MIT"
+    "author": {
+        "name": "Binuka Kamesh",
+        "email": "binukakamesh97@gmail.com",
+        "url": "https://github.com/Binuka97"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/Binuka97/cordova-plugin-rootguard/issues"
+    },
+    "homepage": "https://github.com/Binuka97/cordova-plugin-rootguard/blob/main/README.md"
 }
