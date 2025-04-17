@@ -1,11 +1,12 @@
 {
     "name": "cordova-plugin-rootguard",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "description": "Cordova plugin for detecting root access and Frida-based root bypass attempts.",
     "cordova": {
         "id": "cordova-plugin-rootguard",
         "platforms": [
-            "android"
+            "android",
+            "ios"
         ]
     },
     "repository": {
@@ -20,7 +21,11 @@
         "security",
         "cydia",
         "detection",
-        "detector",
+        "cordova-plugin",
+        "cordova-plugin-rootguard",
+        "cordova-ios",
+        "cordova-android",
+        "cordova-ios-plugin",
         "root",
         "rooted",
         "rootBeer",
