@@ -3,22 +3,33 @@
 ![RootGuard](https://img.shields.io/badge/Cordova%20Plugin-RootGuard-blue.svg)
 
 **`cordova-plugin-rootguard`** is a security plugin for Cordova that detects:
-✅ **Root Access** (Magisk, SuperSU, `su` binaries, system modifications)  
-✅ **Frida Runtime Instrumentation** (open ports, injected libraries, running processes)
+- ✅ Root access (Magisk, SuperSU, `su` binaries, system mount modifications) – **Android**
+- ✅ Frida instrumentation (open ports, memory maps, processes) – **Android**
+- ✅ Jailbreak status (Cydia, Sileo, rootless indicators) – **iOS**
+- ✅ Frida runtime detection (dylib injection) – **iOS**
 
-## 📌 Features
-- ✅ Detects root access (e.g., presence of `su`, known root apps, and system modifications)
-- ✅ Detects Frida-based debugging and instrumentation
-- ✅ Efficient and lightweight detection
-- ✅ Easy integration with Cordova applications
-- ✅ Compatible with Cordova Android projects.
+## ✅ Features
+
+### Android
+- Detects common root paths and `su` binaries
+- Executes shell checks (`which su`, `mount`)
+- Detects Frida server via:
+  - Open ports (default: 27042, 27043)
+  - Injected memory maps
+  - Frida running processes
+  - System properties
+
+### iOS
+- Detects Cydia, Sileo, and rootless jailbreak indicators
+- Checks common jailbreak file paths and URL schemes
+- Detects Frida dynamic library injections using `dyld` inspection
 ---
 
 ## 🚀 Installation
 
 ### **Option 1: Install from GitHub**
 ```sh
-cordova plugin add https://github.com/binuka97/cordova-plugin-rootguard.git
+cordova plugin add cordova-plugin-rootguard
 ```
 
 ### **Option 2: Install Locally**
@@ -38,7 +49,6 @@ The plugin provides a single function `checkSecurity` that checks for both root 
 ```js
 RootGuard.checkSecurity(function(result) {
     if (result === 1) {
-        console.log("Security status: " + (result ? "Compromised" : "Safe"));
         console.log("Security Risk Detected: Root or Frida is present.");
     } else {
         console.log("Device is secure.");
@@ -69,6 +79,14 @@ RootGuard.checkSecurity(function(result) {
 1. Install **Magisk** or **SuperSU** on your Android device.
 2. Run your Cordova app. It should detect root and exit.
 
+### Android
+- Test with rooted devices or emulators with Magisk/SuperSU.
+- Attach Frida using: frida -n <package>
+
+### iOS
+- Test on a jailbroken device (Palera1n, Dopamine).
+- Use Frida with tools like frida-trace, frida-server.
+
 ### **Testing Frida Detection**
 1. Start Frida-server on the device:
    ```sh
@@ -81,9 +99,13 @@ RootGuard.checkSecurity(function(result) {
 ---
 
 ## Supported Platforms
-✅ **Android** (Minimum SDK: API 21+)
-❌ iOS (Not supported yet)
+- ✅ **Android** (Minimum SDK: API 21+)
+- ✅ iOS
 
+Platform | Root/Jailbreak Detection | rida Detection
+--- | --- | ---
+Android | ✅ | ✅
+iOS | ✅ (Cydia, Sileo, Rootless) | ✅ (dylib scan)
 ---
 
 ## Troubleshooting
