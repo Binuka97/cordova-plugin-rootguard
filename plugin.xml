@@ -22,6 +22,15 @@
         <source-file src="src/android/RootGuard.java" target-dir="src/com/android/rootguard/"/>
     </platform>
 
+    <platform name="ios">
+        <config-file target="config.xml" parent="/*">
+            <feature name="RootGuard">
+                <param name="ios-package" value="RootGuard" />
+            </feature>
+        </config-file>
+        <source-file src="src/ios/RootGuard.m" />
+    </platform>
+
     <js-module src="www/RootGuard.js" name="RootGuard">
         <clobbers target="RootGuard"/>
     </js-module>
