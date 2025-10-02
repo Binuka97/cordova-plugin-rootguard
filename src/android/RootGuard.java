@@ -4,8 +4,10 @@ import org.apache.cordova.*;
 import org.json.JSONArray;
 import org.json.JSONException;
 import android.util.Log;
+
 import java.io.*;
 import java.net.*;
+import java.util.concurrent.TimeUnit;
 
 public class RootGuard extends CordovaPlugin {
     private static final String TAG = "RootGuard";
@@ -14,30 +16,28 @@ public class RootGuard extends CordovaPlugin {
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
         if ("checkSecurity".equals(action)) {
-            boolean isCompromised = isDeviceRooted() || isFridaPresent();
-            callbackContext.success(isCompromised ? 1 : 0);
+            cordova.getThreadPool().execute(() -> {
+                try {
+                    boolean isCompromised = isDeviceRooted() || isFridaPresent();
+                    callbackContext.success(isCompromised ? 1 : 0);
+                } catch (Exception e) {
+                    log("Exception during detection: " + e.getMessage());
+                    // If detection fails or hangs, assume compromised
+                    callbackContext.success(1);
+                }
+            });
             return true;
         }
         return false;
     }
 
-    /** 
-     * Detects if the device is rooted using multiple checks.
-     */
+    // ---------------------------
+    // Root Detection
+    // ---------------------------
     private boolean isDeviceRooted() {
         return checkRootFiles() || checkSuCommand() || checkSystemMount();
     }
 
-    /** 
-     * Detects if Frida is present using multiple detection mechanisms.
-     */
-    private boolean isFridaPresent() {
-        return checkFridaPorts() || checkFridaLibraries() || checkFridaProcesses() || checkFridaProperties();
-    }
-
-    /** 
-     * Checks for common root indicator files.
-     */
     private boolean checkRootFiles() {
         String[] rootPaths = {
             "/system/app/Superuser.apk",
@@ -62,45 +62,43 @@ public class RootGuard extends CordovaPlugin {
         return false;
     }
 
-    /** 
-     * Tries executing the 'su' command to detect root access.
-     */
     private boolean checkSuCommand() {
-        try {
-            Process process = Runtime.getRuntime().exec(new String[]{"/system/xbin/which", "su"});
-            BufferedReader in = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            boolean isRooted = in.readLine() != null;
-            in.close();
-            return isRooted;
-        } catch (IOException ignored) {
-            return false;
-        }
+        return runCommandWithTimeout(new String[]{"/system/xbin/which", "su"}, 500);
     }
 
-    /** 
-     * Checks if /system is mounted as read-write instead of read-only.
-     */
     private boolean checkSystemMount() {
         try {
-            Process process = Runtime.getRuntime().exec("mount");
+            Process process = new ProcessBuilder("mount").start();
+            if (!process.waitFor(500, TimeUnit.MILLISECONDS)) {
+                process.destroy();
+                log("Mount command timed out (possible Magisk hide).");
+                return true; // Treat timeout as compromised
+            }
+
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line;
             while ((line = reader.readLine()) != null) {
                 if (line.contains(" /system ") && !line.contains(" ro ")) {
                     log("Root detected via mount command!");
+                    reader.close();
                     return true;
                 }
             }
             reader.close();
-        } catch (IOException e) {
+        } catch (Exception e) {
             log("Error checking mount: " + e.getMessage());
+            return true; // Fail-safe: treat error as compromised
         }
         return false;
     }
 
-    /** 
-     * Checks if Frida's default ports are open.
-     */
+    // ---------------------------
+    // Frida Detection
+    // ---------------------------
+    private boolean isFridaPresent() {
+        return checkFridaPorts() || checkFridaLibraries() || checkFridaProcesses() || checkFridaProperties();
+    }
+
     private boolean checkFridaPorts() {
         int[] ports = {27042, 27043}; // Frida default ports
         for (int port : ports) {
@@ -108,16 +106,11 @@ public class RootGuard extends CordovaPlugin {
                 socket.connect(new InetSocketAddress("127.0.0.1", port), 500);
                 log("Frida server detected on port " + port);
                 return true;
-            } catch (IOException ignored) {
-                // No Frida server detected on this port
-            }
+            } catch (IOException ignored) {}
         }
         return false;
     }
 
-    /** 
-     * Scans process memory maps for Frida-related libraries.
-     */
     private boolean checkFridaLibraries() {
         try (BufferedReader reader = new BufferedReader(new FileReader("/proc/self/maps"))) {
             String line;
@@ -129,53 +122,67 @@ public class RootGuard extends CordovaPlugin {
             }
         } catch (IOException e) {
             log("Error checking Frida libraries: " + e.getMessage());
+            return true; // Fail-safe
         }
         return false;
     }
 
-    /** 
-     * Checks if a Frida process (frida-server) is running.
-     */
     private boolean checkFridaProcesses() {
-        try {
-            Process process = Runtime.getRuntime().exec("pidof frida-server");
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            boolean isFridaRunning = reader.readLine() != null;
-            reader.close();
-            if (isFridaRunning) {
-                log("Frida process detected!");
-            }
-            return isFridaRunning;
-        } catch (IOException e) {
-            log("Error checking Frida processes: " + e.getMessage());
-        }
-        return false;
+        return runCommandWithTimeout(new String[]{"pidof", "frida-server"}, 500);
     }
 
-    /** 
-     * Searches system properties for Frida-related indicators.
-     */
     private boolean checkFridaProperties() {
         try {
-            Process process = Runtime.getRuntime().exec("getprop");
+            Process process = new ProcessBuilder("getprop").start();
+            if (!process.waitFor(500, TimeUnit.MILLISECONDS)) {
+                process.destroy();
+                log("getprop command timed out.");
+                return true;
+            }
+
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line;
             while ((line = reader.readLine()) != null) {
                 if (line.toLowerCase().contains("frida")) {
                     log("Frida detected in system properties!");
+                    reader.close();
                     return true;
                 }
             }
             reader.close();
-        } catch (IOException e) {
+        } catch (Exception e) {
             log("Error checking system properties: " + e.getMessage());
+            return true; // Fail-safe
         }
         return false;
     }
 
-    /** 
-     * Utility function to log messages if logging is enabled.
-     */
+    // ---------------------------
+    // Utility
+    // ---------------------------
+    private boolean runCommandWithTimeout(String[] command, int timeoutMs) {
+        try {
+            Process process = new ProcessBuilder(command).start();
+            if (!process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
+                process.destroy();
+                log("Command timed out: " + String.join(" ", command));
+                return true; // Timeout → assume compromised
+            }
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            boolean hasOutput = reader.readLine() != null;
+            reader.close();
+
+            if (hasOutput) {
+                log("Command output detected: " + String.join(" ", command));
+            }
+            return hasOutput;
+        } catch (Exception e) {
+            log("Error running command: " + String.join(" ", command) + " | " + e.getMessage());
+            return true; // Fail-safe
+        }
+    }
+
     private void log(String message) {
         if (ENABLE_LOGS) {
             Log.d(TAG, message);
