@@ -16,7 +16,19 @@
 - ✅ Jailbreak status (Cydia, Sileo, rootless indicators) – **iOS**
 - ✅ Frida runtime detection (dylib injection) – **iOS**
 
-## ✅ Features
+## Changelog
+### 02-10-2025
+- Fix(android): prevent plugin timeout on Magisk/RootAVD by adding process timeouts and safe cleanup
+  - Moved root and Frida detection checks to Cordova thread pool
+  - Added timeouts (500ms) to all shell command executions (`su`, `mount`, `pidof`, `getprop`)
+  - Ensured processes are destroyed and streams closed in finally blocks
+  - Fail-safe: assume compromised if detection errors or times out
+  - Fixes issue where plugin call timed out on Magisk-enabled emulators (RootAVD)
+
+### 17-04-2025
+- Added iOS support
+
+## Features
 
 ### Android
 - Detects common root paths and `su` binaries
