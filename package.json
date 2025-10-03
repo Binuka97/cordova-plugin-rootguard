@@ -1,6 +1,6 @@
 {
     "name": "cordova-plugin-rootguard",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "description": "Cordova plugin for detecting root access and Frida-based root bypass attempts.",
     "cordova": {
         "id": "cordova-plugin-rootguard",
