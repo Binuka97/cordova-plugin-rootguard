@@ -62,32 +62,87 @@ public class RootGuard extends CordovaPlugin {
         return false;
     }
 
+    /**
+     * Tries multiple strategies to detect su:
+     * 1) Try `which su` (system-resolved)
+     * 2) Fallback to checking common su paths
+     */
     private boolean checkSuCommand() {
-        return runCommandWithTimeout(new String[]{"/system/xbin/which", "su"}, 500);
+        // 1) Try plain `which su` (no absolute path) — runCommandWithTimeout will handle missing binary gracefully
+        try {
+            if (runCommandWithTimeout(new String[]{"which", "su"}, 500)) {
+                log("su detected via `which su`");
+                return true;
+            }
+        } catch (Exception ignored) {
+            // runCommandWithTimeout already logs; continue to fallbacks
+        }
+
+        // 2) Fallback: check common su locations directly
+        String[] suPaths = {
+            "/system/xbin/su",
+            "/system/bin/su",
+            "/sbin/su",
+            "/vendor/bin/su",
+            "/su/bin/su"
+        };
+
+        for (String path : suPaths) {
+            try {
+                if (new File(path).exists()) {
+                    log("su binary found at: " + path);
+                    return true;
+                }
+            } catch (SecurityException se) {
+                // If checking file existence causes a security exception, treat as suspicious (fail-safe)
+                log("SecurityException when checking su path: " + se.getMessage());
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private boolean checkSystemMount() {
+        Process process = null;
+        BufferedReader reader = null;
         try {
-            Process process = new ProcessBuilder("mount").start();
+            process = new ProcessBuilder("mount").start();
             if (!process.waitFor(500, TimeUnit.MILLISECONDS)) {
                 process.destroy();
                 log("Mount command timed out (possible Magisk hide).");
                 return true; // Treat timeout as compromised
             }
 
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line;
             while ((line = reader.readLine()) != null) {
                 if (line.contains(" /system ") && !line.contains(" ro ")) {
                     log("Root detected via mount command!");
-                    reader.close();
                     return true;
                 }
             }
-            reader.close();
-        } catch (Exception e) {
-            log("Error checking mount: " + e.getMessage());
-            return true; // Fail-safe: treat error as compromised
+        } catch (IOException e) {
+            // If mount binary is missing or cannot run, that alone isn't proof of root; but treat other IO issues as suspicious.
+            String msg = e.getMessage() != null ? e.getMessage() : "";
+            log("Error checking mount: " + msg);
+            // If it's "No such file or directory" specifically, don't assume compromised just for that.
+            if (msg.contains("error=2") || msg.toLowerCase().contains("no such file")) {
+                log("mount binary missing — not a definitive root indicator.");
+                return false;
+            }
+            return true; // Fail-safe for other errors
+        } catch (InterruptedException ie) {
+            log("Interrupted while checking mount: " + ie.getMessage());
+            Thread.currentThread().interrupt();
+            return true;
+        } finally {
+            if (reader != null) {
+                try { reader.close(); } catch (IOException ignored) {}
+            }
+            if (process != null) {
+                process.destroy();
+            }
         }
         return false;
     }
@@ -132,27 +187,44 @@ public class RootGuard extends CordovaPlugin {
     }
 
     private boolean checkFridaProperties() {
+        Process process = null;
+        BufferedReader reader = null;
         try {
-            Process process = new ProcessBuilder("getprop").start();
+            process = new ProcessBuilder("getprop").start();
             if (!process.waitFor(500, TimeUnit.MILLISECONDS)) {
                 process.destroy();
                 log("getprop command timed out.");
                 return true;
             }
 
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line;
             while ((line = reader.readLine()) != null) {
                 if (line.toLowerCase().contains("frida")) {
                     log("Frida detected in system properties!");
-                    reader.close();
                     return true;
                 }
             }
-            reader.close();
-        } catch (Exception e) {
-            log("Error checking system properties: " + e.getMessage());
+        } catch (IOException e) {
+            String msg = e.getMessage() != null ? e.getMessage() : "";
+            log("Error checking system properties: " + msg);
+            // don't treat missing getprop binary as a root indicator
+            if (msg.contains("error=2") || msg.toLowerCase().contains("no such file")) {
+                log("getprop binary missing — not a definitive frida indicator.");
+                return false;
+            }
             return true; // Fail-safe
+        } catch (InterruptedException ie) {
+            log("Interrupted while checking properties: " + ie.getMessage());
+            Thread.currentThread().interrupt();
+            return true;
+        } finally {
+            if (reader != null) {
+                try { reader.close(); } catch (IOException ignored) {}
+            }
+            if (process != null) {
+                process.destroy();
+            }
         }
         return false;
     }
@@ -160,26 +232,57 @@ public class RootGuard extends CordovaPlugin {
     // ---------------------------
     // Utility
     // ---------------------------
+    /**
+     * Run a command with a timeout. Returns true if the command produced output (meaning suspicious for checks like `which su` / `pidof`),
+     * false if no output or the binary is missing.
+     *
+     * Behavior:
+     * - If process cannot be started because binary is missing (IOException containing error=2 / No such file) -> return false.
+     * - If process times out (hangs) -> treat as suspicious and return true.
+     * - If process runs and produces output -> return true.
+     * - For other unexpected exceptions -> treat as suspicious (return true).
+     */
     private boolean runCommandWithTimeout(String[] command, int timeoutMs) {
+        Process process = null;
+        BufferedReader reader = null;
         try {
-            Process process = new ProcessBuilder(command).start();
+            process = new ProcessBuilder(command).start();
             if (!process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
                 process.destroy();
                 log("Command timed out: " + String.join(" ", command));
-                return true; // Timeout → assume compromised
+                return true; // Timeout → assume compromised / suspicious
             }
 
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             boolean hasOutput = reader.readLine() != null;
-            reader.close();
 
             if (hasOutput) {
                 log("Command output detected: " + String.join(" ", command));
             }
             return hasOutput;
+        } catch (IOException e) {
+            String msg = e.getMessage() != null ? e.getMessage() : "";
+            log("IOException running command: " + String.join(" ", command) + " | " + msg);
+            // If binary is missing on the system (error=2 / No such file or directory), treat as NOT compromised
+            if (msg.contains("error=2") || msg.toLowerCase().contains("no such file")) {
+                return false;
+            }
+            // Other IOExceptions could be suspicious — fail-safe
+            return true;
+        } catch (InterruptedException e) {
+            log("Interrupted while running command: " + String.join(" ", command) + " | " + e.getMessage());
+            Thread.currentThread().interrupt();
+            return true; // Fail-safe
         } catch (Exception e) {
             log("Error running command: " + String.join(" ", command) + " | " + e.getMessage());
-            return true; // Fail-safe
+            return true; // Fail-safe for unknown issues
+        } finally {
+            if (reader != null) {
+                try { reader.close(); } catch (IOException ignored) {}
+            }
+            if (process != null) {
+                process.destroy();
+            }
         }
     }
 
