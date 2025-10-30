@@ -14,8 +14,16 @@ public class RootGuard extends CordovaPlugin {
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
         if ("checkSecurity".equals(action)) {
-            boolean isCompromised = isDeviceRooted() || isFridaPresent();
-            callbackContext.success(isCompromised ? 1 : 0);
+            cordova.getThreadPool().execute(() -> {
+                try {
+                    boolean isCompromised = isDeviceRooted() || isFridaPresent();
+                    callbackContext.success(isCompromised ? 1 : 0);
+                } catch (Exception e) {
+                    log("Exception during detection: " + e.getMessage());
+                    // If detection fails or hangs, assume compromised
+                    callbackContext.success(1);
+                }
+            });
             return true;
         }
         return false;
