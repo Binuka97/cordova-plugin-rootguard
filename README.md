@@ -6,8 +6,9 @@
 [![Android](https://img.shields.io/badge/Cordova_android-success-green.svg)](https://shields.io)
 [![iOS](https://img.shields.io/badge/Cordova_iOS-success-green.svg)](https://shields.io)
 
-[![NPM](https://nodei.co/npm/cordova-plugin-rootguard.png?stars=true)](https://nodei.co/npm/cordova-plugin-rootguard/)
-[![NPM](https://nodei.co/npm-dl/cordova-plugin-rootguard.png?months=1)](https://nodei.co/npm-dl/cordova-plugin-rootguard.png?months=1)
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/c26f452a-1430-468d-a653-98ffa464898e" />
+</p>
 
 **`cordova-plugin-rootguard`** is a security plugin for Cordova that detects:
 - ✅ Root access (Magisk, SuperSU, `su` binaries, system mount modifications) – **Android**
