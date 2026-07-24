@@ -170,6 +170,7 @@ document.addEventListener("deviceready", function () {
         console.log(result.apiLevel);          // Android only
         console.log(result.evidence);
         console.log(result.unavailableChecks);
+        console.log(result.unknownReasons);
         console.log(result.localOnly);         // always true
     }, function (error) {
         console.error("RootGuard check failed", error);
@@ -188,6 +189,9 @@ Example response:
   "apiLevel": 36,
   "evidence": [],
   "unavailableChecks": [],
+  "unknownReasons": [
+    "modern_android_local_integrity_unverifiable"
+  ],
   "localOnly": true
 }
 ```
@@ -203,10 +207,50 @@ The detailed result contains:
 | `apiLevel` | `number` | Android API level; absent on iOS |
 | `evidence` | `string[]` | Coarse categories detected locally |
 | `unavailableChecks` | `string[]` | Checks unavailable in the environment |
+| `unknownReasons` | `string[]` | Stable reason codes explaining an `UNKNOWN` result |
 | `localOnly` | `true` | Indicates that this is not a server attestation |
 
-Treat `evidence` and `unavailableChecks` as internal security telemetry. Do not
-display exact detection information to end users.
+`unknownReasons` is additive and is present in RootGuard 2.1.0 detailed native
+results. Clients should still use `result.unknownReasons || []` when supporting
+older installed versions.
+
+### Possible `UNKNOWN` scenarios
+
+| Reason code | Scenario | Recommended handling |
+|---|---|---|
+| `modern_android_local_integrity_unverifiable` | Android 13 or newer has no conclusive local compromise evidence, but local absence checks cannot prove device integrity | Request backend-verified Play Integrity or apply proportionate step-up |
+| `single_medium_signal` | Exactly one ambiguous indicator was detected, such as a non-production build, generic GLib thread, open local port, or debugger state | Review `evidence`; do not label the device rooted without corroboration |
+| `critical_check_unavailable` | A critical inspection capability, such as process maps, root checks, or iOS thread enumeration, was unavailable | Review `unavailableChecks` and use platform attestation |
+| `assessment_exception` | The native assessment encountered an unexpected internal exception | Treat as an operationally inconclusive result and collect non-sensitive diagnostics |
+| `ios_simulator` | The application is running in the iOS Simulator, where a physical-device jailbreak conclusion is not meaningful | Use a physical device for security validation |
+| `assessment_deadline` | Reserved for a future overall assessment deadline | Treat as inconclusive; never as proof of compromise |
+
+More than one reason may be returned. For example, a modern Android device can
+report both `critical_check_unavailable` and
+`modern_android_local_integrity_unverifiable`.
+
+Client-side inspection example:
+
+```js
+RootGuard.checkSecurityDetailed(function (result) {
+    if (result.status !== RootGuard.UNKNOWN) {
+        return;
+    }
+
+    var reasons = result.unknownReasons || [];
+    console.warn("RootGuard UNKNOWN reasons:", reasons);
+    console.warn("Unconfirmed evidence:", result.evidence);
+    console.warn("Unavailable checks:", result.unavailableChecks);
+
+    // UNKNOWN is inconclusive. Do not classify the device as rooted solely
+    // because this array contains a reason.
+}, function (error) {
+    console.error("RootGuard check failed", error);
+});
+```
+
+Treat `evidence`, `unavailableChecks`, and `unknownReasons` as internal security
+telemetry. Do not display exact detection information to end users.
 
 ## Promise wrapper
 

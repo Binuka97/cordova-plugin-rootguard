@@ -61,10 +61,12 @@ public final class RootGuard extends CordovaPlugin {
     private static final class Assessment {
         final int status;
         final List<Signal> signals;
+        final List<String> unknownReasons;
 
-        Assessment(int status, List<Signal> signals) {
+        Assessment(int status, List<Signal> signals, List<String> unknownReasons) {
             this.status = status;
             this.signals = signals;
+            this.unknownReasons = unknownReasons;
         }
     }
 
@@ -81,7 +83,9 @@ public final class RootGuard extends CordovaPlugin {
             try {
                 assessment = assess();
             } catch (Throwable ignored) {
-                assessment = new Assessment(UNKNOWN, new ArrayList<>());
+                List<String> unknownReasons = new ArrayList<>();
+                unknownReasons.add("assessment_exception");
+                assessment = new Assessment(UNKNOWN, new ArrayList<>(), unknownReasons);
             }
 
             if ("checkSecurity".equals(action)) {
@@ -109,19 +113,26 @@ public final class RootGuard extends CordovaPlugin {
 
         int high = countDetected(signals, Strength.HIGH);
         int medium = countDetected(signals, Strength.MEDIUM);
+        boolean criticalUnavailable = criticalChecksUnavailable(signals);
+        List<String> unknownReasons = new ArrayList<>();
         int status;
         if (high > 0 || medium >= 2) {
             status = COMPROMISED;
-        } else if (medium == 1 || criticalChecksUnavailable(signals)) {
-            status = UNKNOWN;
-        } else if (Build.VERSION.SDK_INT >= ANDROID_13) {
-            // Local absence checks cannot establish device integrity on modern
-            // Android. A server-verified Play Integrity verdict is required.
-            status = UNKNOWN;
         } else {
-            status = SAFE;
+            if (medium == 1) {
+                unknownReasons.add("single_medium_signal");
+            }
+            if (criticalUnavailable) {
+                unknownReasons.add("critical_check_unavailable");
+            }
+            if (Build.VERSION.SDK_INT >= ANDROID_13) {
+                // Local absence checks cannot establish device integrity on modern
+                // Android. A server-verified Play Integrity verdict is required.
+                unknownReasons.add("modern_android_local_integrity_unverifiable");
+            }
+            status = unknownReasons.isEmpty() ? SAFE : UNKNOWN;
         }
-        return new Assessment(status, signals);
+        return new Assessment(status, signals, unknownReasons);
     }
 
     private Signal checkRootArtifacts() {
@@ -357,7 +368,9 @@ public final class RootGuard extends CordovaPlugin {
         JSONObject result = new JSONObject();
         JSONArray evidence = new JSONArray();
         JSONArray unavailable = new JSONArray();
+        JSONArray unknownReasons = new JSONArray();
         try {
+            for (String reason : assessment.unknownReasons) unknownReasons.put(reason);
             for (Signal signal : assessment.signals) {
                 if (signal.state == State.DETECTED) evidence.put(signal.id);
                 if (signal.state == State.UNAVAILABLE) unavailable.put(signal.id);
@@ -369,6 +382,7 @@ public final class RootGuard extends CordovaPlugin {
             result.put("apiLevel", Build.VERSION.SDK_INT);
             result.put("evidence", evidence);
             result.put("unavailableChecks", unavailable);
+            result.put("unknownReasons", unknownReasons);
             result.put("localOnly", true);
         } catch (JSONException ignored) {
             // All keys and values above are JSON-compatible.

@@ -61,6 +61,7 @@ typedef NS_ENUM(NSInteger, RGSignalStrength) {
                 @"osVersion": [UIDevice currentDevice].systemVersion ?: @"",
                 @"evidence": @[],
                 @"unavailableChecks": @[@"assessment"],
+                @"unknownReasons": @[@"assessment_exception"],
                 @"localOnly": @YES
             };
         }
@@ -105,6 +106,7 @@ typedef NS_ENUM(NSInteger, RGSignalStrength) {
     BOOL criticalUnavailable = NO;
     NSMutableArray<NSString *> *evidence = [NSMutableArray array];
     NSMutableArray<NSString *> *unavailable = [NSMutableArray array];
+    NSMutableArray<NSString *> *unknownReasons = [NSMutableArray array];
 
     for (NSDictionary *signal in signals) {
         RGSignalState state = [signal[@"state"] integerValue];
@@ -114,14 +116,27 @@ typedef NS_ENUM(NSInteger, RGSignalStrength) {
             else medium++;
         } else if (state == RGSignalUnavailable) {
             [unavailable addObject:signal[@"id"]];
-            if ([signal[@"strength"] integerValue] == RGSignalHigh) criticalUnavailable = YES;
+            if ([signal[@"id"] isEqualToString:@"simulator"]) {
+                [unknownReasons addObject:@"ios_simulator"];
+            } else if ([signal[@"strength"] integerValue] == RGSignalHigh) {
+                criticalUnavailable = YES;
+            }
         }
     }
 
     NSInteger status;
-    if (high > 0 || medium >= 2) status = RGStatusCompromised;
-    else if (medium == 1 || criticalUnavailable) status = RGStatusUnknown;
-    else status = RGStatusSafe;
+    if (high > 0 || medium >= 2) {
+        status = RGStatusCompromised;
+        [unknownReasons removeAllObjects];
+    } else {
+        if (medium == 1) {
+            [unknownReasons addObject:@"single_medium_signal"];
+        }
+        if (criticalUnavailable) {
+            [unknownReasons addObject:@"critical_check_unavailable"];
+        }
+        status = unknownReasons.count > 0 ? RGStatusUnknown : RGStatusSafe;
+    }
 
     return @{
         @"status": @(status),
@@ -130,6 +145,7 @@ typedef NS_ENUM(NSInteger, RGSignalStrength) {
         @"osVersion": [UIDevice currentDevice].systemVersion ?: @"",
         @"evidence": evidence,
         @"unavailableChecks": unavailable,
+        @"unknownReasons": unknownReasons,
         @"localOnly": @YES
     };
 }

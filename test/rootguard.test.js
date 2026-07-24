@@ -66,9 +66,19 @@ test("Android implementation does not execute shell commands or fail closed on e
     assert.match(source, /\/proc\/self\/task/);
     assert.match(source, /\/proc\/self\/net\/tcp6?/);
     assert.match(source, /AUTH\\r\\n/);
+    assert.match(source, /modern_android_local_integrity_unverifiable/);
+    assert.match(source, /single_medium_signal/);
+    assert.match(source, /critical_check_unavailable/);
+    assert.match(source, /assessment_exception/);
+    assert.match(source, /result\.put\("unknownReasons", unknownReasons\)/);
 });
 
 test("iOS does not use the stock /private/preboot directory as an indicator", () => {
     const source = fs.readFileSync(path.join(root, "src", "ios", "RootGuard.m"), "utf8");
     assert.doesNotMatch(source, /^\s*"\/private\/preboot",?$/m);
+    assert.match(source, /@"unknownReasons"/);
+    assert.match(source, /@"assessment_exception"/);
+    assert.match(source, /@"ios_simulator"/);
+    assert.match(source, /@"single_medium_signal"/);
+    assert.match(source, /@"critical_check_unavailable"/);
 });

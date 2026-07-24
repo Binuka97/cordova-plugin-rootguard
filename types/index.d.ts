@@ -1,5 +1,12 @@
 declare namespace RootGuard {
     type Status = 0 | 1 | 2;
+    type UnknownReason =
+        | "modern_android_local_integrity_unverifiable"
+        | "single_medium_signal"
+        | "critical_check_unavailable"
+        | "assessment_exception"
+        | "ios_simulator"
+        | "assessment_deadline";
 
     interface DetailedResult {
         status: Status;
@@ -9,6 +16,7 @@ declare namespace RootGuard {
         apiLevel?: number;
         evidence: string[];
         unavailableChecks: string[];
+        unknownReasons?: UnknownReason[];
         localOnly: true;
     }
 
