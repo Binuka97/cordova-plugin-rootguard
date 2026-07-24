@@ -1,162 +1,419 @@
-# Cordova Plugin - RootGuard : cordova-plugin-rootguard
+# Cordova Plugin - RootGuard
 
 ![RootGuard](https://img.shields.io/badge/Cordova%20Plugin-RootGuard-blue.svg)
-
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/Binuka97/cordova-plugin-rootguard/master/LICENSE)
-[![Android](https://img.shields.io/badge/Cordova_android-success-green.svg)](https://shields.io)
-[![iOS](https://img.shields.io/badge/Cordova_iOS-success-green.svg)](https://shields.io)
+![npm](https://img.shields.io/badge/npm-v2.1.0-CB3837.svg)
+![Android](https://img.shields.io/badge/Android-API%2021%2B-3DDC84.svg)
+![iOS](https://img.shields.io/badge/iOS-Cordova%20iOS-lightgrey.svg)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/Binuka97/cordova-plugin-rootguard/main/LICENSE)
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/c26f452a-1430-468d-a653-98ffa464898e" />
+  <img src="https://github.com/user-attachments/assets/c26f452a-1430-468d-a653-98ffa464898e" alt="RootGuard" />
 </p>
 
-**`cordova-plugin-rootguard`** is a security plugin for Cordova that detects:
-- ✅ Root access (Magisk, SuperSU, `su` binaries, system mount modifications) – **Android**
-- ✅ Frida instrumentation (open ports, memory maps, processes) – **Android**
-- ✅ Jailbreak status (Cydia, Sileo, rootless indicators) – **iOS**
-- ✅ Frida runtime detection (dylib injection) – **iOS**
+`cordova-plugin-rootguard` provides best-effort root, jailbreak, and runtime
+instrumentation detection for Cordova applications on Android and iOS.
 
-## Changelog
-### 02-10-2025
-- Fix(android): prevent plugin timeout on Magisk/RootAVD by adding process timeouts and safe cleanup
-  - Moved root and Frida detection checks to Cordova thread pool
-  - Added timeouts (500ms) to all shell command executions (`su`, `mount`, `pidof`, `getprop`)
-  - Ensured processes are destroyed and streams closed in finally blocks
-  - Fail-safe: assume compromised if detection errors or times out
-  - Fixes issue where plugin call timed out on Magisk-enabled emulators (RootAVD)
-
-### 17-04-2025
-- Added iOS support
+Version 2.1.0 introduces capability-aware checks and a three-state result model
+to reduce false positives on modern Android devices. Errors, restricted
+operating-system capabilities, and timeouts are reported as `UNKNOWN`; they are
+not treated as proof that a device is compromised.
 
 ## Features
 
 ### Android
-- Detects common root paths and `su` binaries
-- Executes shell checks (`which su`, `mount`)
-- Detects Frida server via:
-  - Open ports (default: 27042, 27043)
-  - Injected memory maps
-  - Frida running processes
-  - System properties
+
+- Detects accessible root, `su`, Magisk, KernelSU, and APatch artifacts.
+- Inspects the current process for Frida, Frida Gadget, Gum, and related markers.
+- Checks memory maps, file descriptors, thread names, and bounded local ports.
+- Probes default and discoverable custom ports for a Frida-compatible protocol.
+- Does not execute `su`, `mount`, `which`, `pidof`, `getprop`, or shell commands.
+- Returns `UNKNOWN` when modern Android restrictions prevent a reliable local
+  conclusion.
 
 ### iOS
-- Detects Cydia, Sileo, and rootless jailbreak indicators
-- Checks common jailbreak file paths and URL schemes
-- Detects Frida dynamic library injections using `dyld` inspection
----
 
-## 🚀 Installation
+- Detects common rootful and rootless jailbreak artifacts.
+- Performs a sandbox write-escape test.
+- Checks loaded images, exported Frida symbols, thread names, open descriptors,
+  injected loader state, debugger state, and bounded Frida ports.
+- Avoids generic paths such as `/private/preboot` that can exist on stock iOS.
+- Runs checks outside the Cordova WebView/UI thread.
 
-### **Option 1: Install from GitHub**
+> [!IMPORTANT]
+> RootGuard is a local risk sensor, not a trust anchor. An attacker who controls
+> a device can hide artifacts, hook these checks, or replace their result. Do
+> not use this plugin as the only control for login, trading, payments,
+> withdrawals, account recovery, or other sensitive operations. Read
+> [SECURITY.md](SECURITY.md) and
+> [ENTERPRISE-INTEGRATION.md](ENTERPRISE-INTEGRATION.md).
+
+## Installation
+
+### Install the published npm version
+
+```sh
+cordova plugin add cordova-plugin-rootguard@2.1.0
+```
+
+To follow the latest compatible published release:
+
 ```sh
 cordova plugin add cordova-plugin-rootguard
 ```
 
-### **Option 2: Install Locally**
-1. Download and place the `cordova-plugin-rootguard/` folder inside your project.
-2. Run:
-   ```sh
-   cordova plugin add ./cordova-plugin-rootguard
-   ```
+### Install from GitHub
 
----
+Use a release tag for reproducible builds:
 
-## 📖 Usage
-### JavaScript API
-The plugin provides a single function `checkSecurity` that checks for both root access and Frida detection.
+```sh
+cordova plugin add https://github.com/Binuka97/cordova-plugin-rootguard.git#v2.1.0
+```
 
-## 🔍 Usage
+### Install from a local clone
+
+```sh
+git clone https://github.com/Binuka97/cordova-plugin-rootguard.git
+cordova plugin add ./cordova-plugin-rootguard
+```
+
+### Upgrade an existing installation
+
+```sh
+cordova plugin remove cordova-plugin-rootguard
+cordova plugin add cordova-plugin-rootguard@2.1.0
+```
+
+After adding or upgrading the plugin, rebuild the native platforms:
+
+```sh
+cordova prepare
+cordova build android
+cordova build ios
+```
+
+Do not manually copy plugin files into the generated `platforms/` directory.
+Cordova regenerates that directory and can overwrite manual changes.
+
+## Requirements
+
+- Cordova 9.0.0 or newer
+- Android API 21 or newer
+- A `cordova-ios` version supporting the target iOS/Xcode release
+
+The project CI currently exercises Cordova Android 15.1 and Cordova iOS 8.1,
+along with JavaScript, TypeScript, metadata, and package tests.
+
+No JavaScript import is required in a normal Cordova application. The plugin
+exposes the global `RootGuard` object after Cordova fires `deviceready`.
+
+## Quick start
+
+Use `checkSecurityStatus()` for all new integrations:
+
 ```js
-RootGuard.checkSecurity(function(result) {
-    if (result === 1) {
-        console.log("Security Risk Detected: Root or Frida is present.");
-    } else {
-        console.log("Device is secure.");
+document.addEventListener("deviceready", function () {
+    RootGuard.checkSecurityStatus(function (status) {
+        switch (status) {
+        case RootGuard.SAFE:
+            // No local compromise indicator was found.
+            // Continue with the application's normal server-side controls.
+            console.log("RootGuard status: SAFE");
+            break;
+
+        case RootGuard.COMPROMISED:
+            // Strong or corroborated local evidence was found.
+            // Apply a proportionate risk policy or request server-side step-up.
+            console.warn("RootGuard status: COMPROMISED");
+            break;
+
+        case RootGuard.UNKNOWN:
+            // The result is inconclusive. Do not label the user as rooted.
+            // Request platform attestation or another server-side verification.
+            console.warn("RootGuard status: UNKNOWN");
+            break;
+        }
+    }, function (error) {
+        // A bridge/plugin error is inconclusive, not proof of compromise.
+        console.error("RootGuard check failed", error);
+    });
+}, false);
+```
+
+## Result values
+
+| Constant | Value | Meaning |
+|---|---:|---|
+| `RootGuard.SAFE` | `0` | Checks completed and no local indicator was found |
+| `RootGuard.COMPROMISED` | `1` | Strong evidence, or corroborated independent evidence, was detected |
+| `RootGuard.UNKNOWN` | `2` | A capability was unavailable or the local result is inconclusive |
+
+`SAFE` means only that the plugin found no local indicator. It does not prove
+that the device or application is trustworthy.
+
+On Android 13 and newer, a result with no strong local compromise evidence is
+intentionally `UNKNOWN`, because local absence checks cannot establish verified
+boot or application integrity. Use backend-verified Play Integrity for that
+purpose.
+
+## Detailed result
+
+Use `checkSecurityDetailed()` when the application needs coarse diagnostic
+telemetry:
+
+```js
+document.addEventListener("deviceready", function () {
+    RootGuard.checkSecurityDetailed(function (result) {
+        console.log(result.status);            // 0, 1, or 2
+        console.log(result.statusName);        // SAFE, COMPROMISED, or UNKNOWN
+        console.log(result.platform);          // android or ios
+        console.log(result.osVersion);
+        console.log(result.apiLevel);          // Android only
+        console.log(result.evidence);
+        console.log(result.unavailableChecks);
+        console.log(result.localOnly);         // always true
+    }, function (error) {
+        console.error("RootGuard check failed", error);
+    });
+}, false);
+```
+
+Example response:
+
+```json
+{
+  "status": 2,
+  "statusName": "UNKNOWN",
+  "platform": "android",
+  "osVersion": "16",
+  "apiLevel": 36,
+  "evidence": [],
+  "unavailableChecks": [],
+  "localOnly": true
+}
+```
+
+The detailed result contains:
+
+| Property | Type | Description |
+|---|---|---|
+| `status` | `0 \| 1 \| 2` | Stable numeric status |
+| `statusName` | `string` | `SAFE`, `COMPROMISED`, or `UNKNOWN` |
+| `platform` | `string` | `android` or `ios` |
+| `osVersion` | `string` | Device operating-system version |
+| `apiLevel` | `number` | Android API level; absent on iOS |
+| `evidence` | `string[]` | Coarse categories detected locally |
+| `unavailableChecks` | `string[]` | Checks unavailable in the environment |
+| `localOnly` | `true` | Indicates that this is not a server attestation |
+
+Treat `evidence` and `unavailableChecks` as internal security telemetry. Do not
+display exact detection information to end users.
+
+## Promise wrapper
+
+The Cordova API is callback-based. Applications that prefer promises can wrap
+it without changing the plugin:
+
+```js
+function getRootGuardStatus() {
+    return new Promise(function (resolve, reject) {
+        RootGuard.checkSecurityStatus(resolve, reject);
+    });
+}
+
+document.addEventListener("deviceready", async function () {
+    try {
+        const status = await getRootGuardStatus();
+
+        if (status === RootGuard.COMPROMISED) {
+            console.warn("Local compromise evidence detected");
+        } else if (status === RootGuard.UNKNOWN) {
+            console.warn("Local security status is inconclusive");
+        }
+    } catch (error) {
+        console.error("RootGuard check failed", error);
     }
-}, function(error) {
-    console.error("Error detecting Root/Frida:", error);
+}, false);
+```
+
+## Legacy API and migration
+
+The original `checkSecurity()` API remains available for applications upgrading
+from version 1.x or 2.0.x:
+
+```js
+document.addEventListener("deviceready", function () {
+    RootGuard.checkSecurity(function (compromised) {
+        if (compromised === 1) {
+            console.warn("Local compromise evidence detected");
+        }
+    }, function (error) {
+        console.error("RootGuard check failed", error);
+    });
+}, false);
+```
+
+The legacy method returns only:
+
+- `0`: no confirmed compromise evidence
+- `1`: compromise evidence detected
+
+For backward compatibility, native `UNKNOWN` results map to `0`. This prevents
+an upgrade from unexpectedly locking out existing users, but it also means the
+legacy method cannot distinguish `SAFE` from `UNKNOWN`.
+
+New and security-sensitive integrations must use `checkSecurityStatus()` or
+`checkSecurityDetailed()`.
+
+## TypeScript
+
+Type declarations are included in the npm package:
+
+```ts
+document.addEventListener("deviceready", () => {
+    RootGuard.checkSecurityStatus((status: RootGuard.Status) => {
+        if (status === RootGuard.COMPROMISED) {
+            console.warn("Local compromise evidence detected");
+        }
+    }, console.error);
 });
 ```
 
----
+The declaration exposes `RootGuard.Status`, `RootGuard.DetailedResult`, the
+three constants, and all three API methods.
 
-## 🔧 How It Works
-### Root Detection
-- **File Check**: Scans for common root-related files (e.g., `su`, `Superuser.apk`, `.magisk`).
-- **Command Execution**: Attempts to execute `su` to check for root access.
-- **Mount Check**: Verifies if `/system` is mounted as read-write instead of read-only.
+## Recommended production policy
 
-### Frida Detection
-- **Port Scan**: Checks for Frida's default listening ports (`27042`, `27043`).
-- **Memory Scan**: Reads `/proc/self/maps` to detect Frida-related libraries (`frida`, `gum-js`, `gadget`).
-- **Process Check**: Looks for a running `frida-server` process.
-- **Property Check**: Scans system properties for any Frida-related entries.
+For financial, trading, payment, identity, or regulated applications:
 
----
+1. Use RootGuard as one local risk signal.
+2. Verify Google Play Integrity or Apple App Attest on a trusted backend.
+3. Bind fresh attestation challenges to the sensitive request.
+4. Keep authentication, authorization, limits, and transaction validation on
+   the server.
+5. Observe status rates by OS and device model before enabling enforcement.
+6. Prefer step-up verification and recoverable restrictions over permanent
+   account lockouts.
 
-## 🛠️ Testing
-### **Testing Root Detection**
-1. Install **Magisk** or **SuperSU** on your Android device.
-2. Run your Cordova app. It should detect root and exit.
+Suggested handling:
 
-### Android
-- Test with rooted devices or emulators with Magisk/SuperSU.
-- Attach Frida using: frida -n <package>
+| RootGuard result | Suggested application behavior |
+|---|---|
+| `SAFE` | Continue with normal backend authorization and attestation |
+| `UNKNOWN` | Request fresh attestation or proportionate step-up verification |
+| `COMPROMISED` | Restrict or step up sensitive operations according to server policy |
+| Plugin error | Treat as inconclusive and request server-side verification |
 
-### iOS
-- Test on a jailbroken device (Palera1n, Dopamine).
-- Use Frida with tools like frida-trace, frida-server.
+Never authorize or reject a sensitive transaction solely from a value returned
+by JavaScript or native client code.
 
-### **Testing Frida Detection**
-1. Start Frida-server on the device:
-   ```sh
-   adb push frida-server /data/local/tmp/
-   adb shell chmod 755 /data/local/tmp/frida-server
-   adb shell /data/local/tmp/frida-server &
-   ```
-2. Run your Cordova app. It should detect Frida and exit.
+## Detection limitations
 
----
+RootGuard raises the cost of common attacks but cannot provide guaranteed
+detection:
 
-## Supported Platforms
-- ✅ **Android** (Minimum SDK: API 21+)
-- ✅ iOS
+- Magisk DenyList, Zygisk modules, and customized root solutions can hide
+  artifacts from an application.
+- Frida Server can be renamed or use a custom port.
+- Frida Gadget can be renamed, embedded, or modified to remove common markers.
+- iOS Shadow and similar tweaks can hook filesystem, loader, socket, process,
+  and Cordova APIs.
+- An attacker can patch the application or force a different plugin response.
 
-Platform | Root/Jailbreak Detection | rida Detection
---- | --- | ---
-Android | ✅ | ✅
-iOS | ✅ (Cydia, Sileo, Rootless) | ✅ (dylib scan)
----
+See [SECURITY.md](SECURITY.md) for the threat model and primary references.
 
 ## Troubleshooting
-### Common Issues & Fixes
-**1. Plugin Not Found After Installation**  
-Run `cordova platform remove android && cordova platform add android` to refresh plugins.
 
-**2. App Crashes on Certain Devices**  
-Ensure the plugin has the required permissions and that your app has `minSdkVersion` set to **21 or higher** in `config.xml`.
+### `RootGuard` is undefined
 
-**3. False Positives or False Negatives**  
-Root detection can vary across devices. Consider adding additional root detection methods if needed.
+Call the plugin only after Cordova's `deviceready` event. Confirm that the plugin
+is installed:
 
----
+```sh
+cordova plugin list
+```
 
-## 📜 License
-This project is licensed under the MIT License.
+If necessary, remove and add the plugin again, then run `cordova prepare`.
 
-## 👨‍💻 Contributing
-We welcome contributions! Feel free to submit a pull request or report issues on the repository.
+### Native changes are not appearing
 
-## 🛠 Support
-For any issues, please open a GitHub issue in the repository.
+Remove and regenerate the affected Cordova platform:
 
----
+```sh
+cordova platform remove android
+cordova platform add android
+```
+
+For iOS, replace `android` with `ios`. Commit or back up any intentional host
+application platform changes before removing a platform.
+
+### A stock device returns `UNKNOWN`
+
+This can be expected on Android 13 and newer or whenever a required local
+capability is restricted. `UNKNOWN` does not mean rooted. Use backend
+attestation or step-up verification.
+
+### A rooted or jailbroken device returns `SAFE` or `UNKNOWN`
+
+Local checks can be concealed or hooked. Confirm that you are testing a release
+build, review `checkSecurityDetailed()` internally, test platform attestation,
+and do not depend on RootGuard as the sole security boundary.
+
+### The app becomes slow during a check
+
+Version 2.1.0 does not execute shell commands and uses bounded network probes on
+Cordova background workers. If a device remains slow, collect the platform, OS,
+device model, plugin result, and timing without exposing sensitive user data,
+then open an issue.
+
+## Testing your integration
+
+Before production rollout, test:
+
+- Stock Android devices across Android 12, 13, 14, 15, and 16, including
+  relevant OEM ROMs.
+- Rooted Android test devices with the root frameworks supported by your threat
+  model.
+- Frida Server using default and non-default configurations.
+- Frida Gadget injection in a controlled test build.
+- Stock and jailbroken physical iOS devices.
+- iOS runtime-hooking and jailbreak-hiding tools included in your threat model.
+- Offline, degraded-service, plugin-error, and `UNKNOWN` handling.
+- Debug and release application builds.
+
+Run the plugin's package tests:
+
+```sh
+npm test
+npm pack --dry-run
+```
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history and migration notes.
+
+## Security
+
+Please report vulnerabilities privately to the maintainer address in
+`package.json`. Do not post credentials, customer information, or proprietary
+assessment reports in a public issue.
+
+## Support and contributing
+
+Bug reports and contributions are welcome through
+[GitHub Issues](https://github.com/Binuka97/cordova-plugin-rootguard/issues).
+Include the plugin version, Cordova platform version, operating-system version,
+device model, and a minimal reproduction when possible.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
 
 ## Author
-📌 **Binuka Kamesh**  
-📧 Contact: [binukakamesh97@gmail.com](mailto:binukakamesh97@gmail.com)  
-🌍 GitHub: [binuka97](https://github.com/binuka97)
+
+**Binuka Kamesh**<br>
+Email: [binukakamesh97@gmail.com](mailto:binukakamesh97@gmail.com)<br>
+GitHub: [Binuka97](https://github.com/Binuka97)
 
 ---
 
-**Maintained by Binuka Kamesh**
+Maintained by Binuka Kamesh.
