@@ -21,7 +21,7 @@ jobs:
       - run: npm publish --dry-run
 
   android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,7 +31,10 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - run: npm install --global cordova@13
       - run: cordova create /tmp/rootguard-android com.example.rootguardci RootGuardCI
       - run: cordova platform add android@15.1.0
