@@ -2,7 +2,8 @@
 
 @interface RootGuard : CDVPlugin
 
-// This defines the method that Cordova will look for
 - (void)checkSecurity:(CDVInvokedUrlCommand*)command;
+- (void)checkSecurityStatus:(CDVInvokedUrlCommand*)command;
+- (void)checkSecurityDetailed:(CDVInvokedUrlCommand*)command;
 
 @end

@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - run: npx --yes --package=typescript@7.0.2 tsc --noEmit --strict --skipLibCheck false types/index.d.ts
+      - run: npm pack --dry-run
+      - run: npm publish --dry-run
+
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - run: npm install --global cordova@13
+      - run: cordova create /tmp/rootguard-android com.example.rootguardci RootGuardCI
+      - run: cordova platform add android@15.1.0
+        working-directory: /tmp/rootguard-android
+      - run: cordova plugin add "$GITHUB_WORKSPACE"
+        working-directory: /tmp/rootguard-android
+      - run: cordova build android --debug
+        working-directory: /tmp/rootguard-android
+
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --global cordova@13
+      - run: cordova create /tmp/rootguard-ios com.example.rootguardci RootGuardCI
+      - run: cordova platform add ios@8.1.1
+        working-directory: /tmp/rootguard-ios
+      - run: cordova plugin add "$GITHUB_WORKSPACE"
+        working-directory: /tmp/rootguard-ios
+      - run: cordova build ios --debug --emulator --buildFlag=CODE_SIGNING_ALLOWED=NO
+        working-directory: /tmp/rootguard-ios
