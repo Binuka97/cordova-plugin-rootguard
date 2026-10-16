@@ -1,6 +1,6 @@
 {
     "name": "cordova-plugin-rootguard",
-    "version": "2.1.0",
+    "version": "2.1.2",
     "description": "Best-effort root, jailbreak, and runtime instrumentation risk detection for Cordova.",
     "types": "types/index.d.ts",
     "files": [
