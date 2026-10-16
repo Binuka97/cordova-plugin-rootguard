@@ -1,4 +1,19 @@
 # Release procedure
+## 2.1.2 release gates
+# Zygisk Root Detection — Release Gates
+- [ ] Review all Android Java, JavaScript, and plugin configuration changes.
+- [ ] Verify package.json and plugin.xml contain the correct plugin version.
+- [ ] Confirm root detection covers Magisk, Zygisk-related indicators, KernelSU, APatch, SuperSU, and root artifacts.
+- [ ] Test on a clean, non-rooted device; confirm SAFE (0).
+- [ ] Test on rooted devices with Magisk and Zygisk enabled; confirm COMPROMISED (1).
+- [ ] Test with root-hiding enabled for the application; investigate any false SAFE (0) result.
+- [ ] Verify Frida detection and instrumentation checks.
+- [ ] Confirm shell-command timeouts and process cleanup prevent plugin hangs.
+- [ ] Verify detection runs on the Cordova thread pool without blocking the UI.
+- [ ] Confirm the existing Ionic/Cordova JavaScript API and result contract remain compatible.
+- [ ] Run regression tests on supported Android versions and RootAVD test environments.
+- [ ] Validate all scenarios with the VAPT team and document any undetectable bypass limitations.
+- [ ] Approve the release only after test results meet the defined security requirements.
 
 ## 2.1.0 release gates
 
