@@ -13,7 +13,7 @@
 `cordova-plugin-rootguard` provides best-effort root, jailbreak, and runtime
 instrumentation detection for Cordova applications on Android and iOS.
 
-Version 2.1.0 introduces capability-aware checks and a three-state result model
+Version 2.1.2 introduces capability-aware checks and a three-state result model
 to reduce false positives on modern Android devices. Errors, restricted
 operating-system capabilities, and timeouts are reported as `UNKNOWN`; they are
 not treated as proof that a device is compromised.
@@ -52,7 +52,7 @@ not treated as proof that a device is compromised.
 ### Install the published npm version
 
 ```sh
-cordova plugin add cordova-plugin-rootguard@2.1.0
+cordova plugin add cordova-plugin-rootguard@2.1.2
 ```
 
 To follow the latest compatible published release:
@@ -66,7 +66,7 @@ cordova plugin add cordova-plugin-rootguard
 Use a release tag for reproducible builds:
 
 ```sh
-cordova plugin add https://github.com/Binuka97/cordova-plugin-rootguard.git#v2.1.0
+cordova plugin add https://github.com/Binuka97/cordova-plugin-rootguard.git#v2.1.2
 ```
 
 ### Install from a local clone
@@ -80,7 +80,7 @@ cordova plugin add ./cordova-plugin-rootguard
 
 ```sh
 cordova plugin remove cordova-plugin-rootguard
-cordova plugin add cordova-plugin-rootguard@2.1.0
+cordova plugin add cordova-plugin-rootguard@2.1.2
 ```
 
 After adding or upgrading the plugin, rebuild the native platforms:
@@ -210,7 +210,7 @@ The detailed result contains:
 | `unknownReasons` | `string[]` | Stable reason codes explaining an `UNKNOWN` result |
 | `localOnly` | `true` | Indicates that this is not a server attestation |
 
-`unknownReasons` is additive and is present in RootGuard 2.1.0 detailed native
+`unknownReasons` is additive and is present in RootGuard 2.1.2 detailed native
 results. Clients should still use `result.unknownReasons || []` when supporting
 older installed versions.
 
@@ -404,7 +404,7 @@ and do not depend on RootGuard as the sole security boundary.
 
 ### The app becomes slow during a check
 
-Version 2.1.0 does not execute shell commands and uses bounded network probes on
+Version 2.1.2 does not execute shell commands and uses bounded network probes on
 Cordova background workers. If a device remains slow, collect the platform, OS,
 device model, plugin result, and timing without exposing sensitive user data,
 then open an issue.
